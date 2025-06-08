@@ -15,6 +15,7 @@ pip install -r requirements.txt
 python scripts/train_model.py
 ```
 
+
 ## Running the API
 
 Start the application with Uvicorn:
