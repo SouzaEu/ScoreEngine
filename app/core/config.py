@@ -1,13 +1,47 @@
 from pydantic_settings import BaseSettings
-from functools import lru_cache
+from typing import Optional
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class Settings(BaseSettings):
-    model_path: str = "model/xgboost_model.pkl"
-    log_level: str = "INFO"
-
+    # API
+    API_HOST: str = "0.0.0.0"
+    API_PORT: int = 8000
+    DEBUG: bool = False
+    ENVIRONMENT: str = "development"
+    
+    # Segurança
+    SECRET_KEY: str
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    
+    # Redis
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    
+    # PostgreSQL
+    POSTGRES_HOST: str = "localhost"
+    POSTGRES_PORT: int = 5432
+    POSTGRES_USER: str
+    POSTGRES_PASSWORD: str
+    POSTGRES_DB: str
+    
+    # MLflow
+    MLFLOW_TRACKING_URI: str = "http://localhost:5000"
+    
+    # Modelos
+    MODEL_DIR: str = "models"
+    
+    # Configurações do Kafka
+    KAFKA_BOOTSTRAP_SERVERS: str = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+    KAFKA_CONSUMER_GROUP: str = os.getenv("KAFKA_CONSUMER_GROUP", "score_engine_group")
+    
+    # Configurações do Prometheus
+    PROMETHEUS_MULTIPROC_DIR: str = os.getenv("PROMETHEUS_MULTIPROC_DIR", "/tmp/prometheus_multiproc")
+    
     class Config:
         env_file = ".env"
 
-@lru_cache()
-def get_settings() -> Settings:
-    return Settings()
+settings = Settings() 
