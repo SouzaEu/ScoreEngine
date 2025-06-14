@@ -28,8 +28,8 @@ Microserviço responsável por calcular, versionar e servir a pontuação de rep
 
 1. Clone o repositório:
 ```bash
-git clone [url-do-repositorio]
-cd score-engine
+git clone https://github.com/Lynexhq/ScoreEngine
+cd ScoreEngine
 ```
 
 2. Configure as variáveis de ambiente:
