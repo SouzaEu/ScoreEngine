@@ -1,7 +1,5 @@
 # ScoreEngine
 
-Serviço de Inferência Preditiva de Reputação
-
 ## Descrição
 
 Microserviço responsável por calcular, versionar e servir a pontuação de reputação transacional de um usuário, a partir de dados comportamentais recebidos por parceiros integrados via API.
