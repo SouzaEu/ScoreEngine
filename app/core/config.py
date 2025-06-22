@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     # Redis
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
+    REDIS_URL: str = "redis://localhost:6379/0"
     
     # PostgreSQL
     POSTGRES_HOST: str = "localhost"
@@ -27,6 +28,14 @@ class Settings(BaseSettings):
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str
     POSTGRES_DB: str
+    MLFLOW_EXPERIMENT_NAME: str = "default"
+    
+    @property
+    def DATABASE_URL(self) -> str:
+        return (
+            f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@"
+            f"{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        )
     
     # MLflow
     MLFLOW_TRACKING_URI: str = "http://localhost:5000"
@@ -42,6 +51,6 @@ class Settings(BaseSettings):
     PROMETHEUS_MULTIPROC_DIR: str = os.getenv("PROMETHEUS_MULTIPROC_DIR", "/tmp/prometheus_multiproc")
     
     class Config:
-        env_file = ".env"
+        env_file = ".env.test"
 
 settings = Settings() 
