@@ -76,6 +76,48 @@ Este documento tem como objetivo orientar desenvolvedores sobre como rodar o Sco
 ### Rodando testes
 - (Adicione aqui instruções de testes automatizados, caso existam)
 
+### Estrutura dos testes automatizados
+
+Os testes ficam na pasta `tests/` na raiz do projeto. Para cada módulo em `app/`, crie um arquivo de teste correspondente em `tests/` (ex: para `app/services/score_service.py`, crie `tests/test_score_service.py`).
+
+Exemplo de teste unitário:
+```python
+# tests/test_soma.py
+
+def test_soma():
+    assert 1 + 1 == 2
+```
+
+Exemplo de teste assíncrono:
+```python
+# tests/test_async.py
+import pytest
+
+@pytest.mark.asyncio
+def test_async_exemplo():
+    async def soma():
+        return 1 + 1
+    resultado = await soma()
+    assert resultado == 2
+```
+
+### Rodando testes automatizados
+
+Para rodar todos os testes automatizados, execute:
+```bash
+pytest
+```
+
+Se quiser ver o relatório detalhado:
+```bash
+pytest -v
+```
+
+Para gerar um relatório de cobertura de testes:
+```bash
+pytest --cov=app
+```
+
 ---
 
 ## Dúvidas ou problemas?

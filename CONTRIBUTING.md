@@ -10,7 +10,11 @@ Contribuições são bem-vindas! Siga as orientações abaixo para colaborar com
    ```
 3. Faça commits claros e objetivos
 4. Garanta que os testes estejam passando e que o projeto rode localmente
-5. Abra um Pull Request detalhado, explicando sua contribuição
+5. Antes de abrir um Pull Request, rode todos os testes automatizados com:
+   ```bash
+   pytest
+   ```
+6. Abra um Pull Request detalhado, explicando sua contribuição
 
 ## Boas práticas
 - Siga o padrão de código PEP8
