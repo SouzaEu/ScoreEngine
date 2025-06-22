@@ -1,6 +1,6 @@
 # ScoreEngine
 
-ScoreEngine é um microserviço robusto para cálculo, versionamento e fornecimento de scores de reputação transacional de usuários, utilizando dados comportamentais recebidos em tempo real via integração com parceiros. Projetado para ambientes de alta escala e compliance, é ideal para fintechs, marketplaces e plataformas que demandam análise de risco automatizada.
+ScoreEngine é um microserviço para cálculo, versionamento e fornecimento de scores de reputação transacional de usuários, utilizando dados comportamentais em tempo real. Ideal para fintechs, marketplaces e plataformas que demandam análise de risco automatizada.
 
 ---
 
@@ -31,9 +31,11 @@ ScoreEngine é um microserviço robusto para cálculo, versionamento e fornecime
 
 ---
 
-## Documentação para Desenvolvedores
+## Documentação
 
-Para instruções detalhadas de instalação, execução local e contribuição, consulte o arquivo [README_DEV.md](./README_DEV.md).
+- [Guia de Contribuição](./CONTRIBUTING.md)
+- [Changelog](./CHANGELOG.md)
+- [Código de Conduta](./CODE_OF_CONDUCT.md)
 
 ---
 
