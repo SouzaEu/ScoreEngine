@@ -9,7 +9,7 @@ from app.api.v1.endpoints import scores, features, models
 from app.core.middleware import PrometheusMiddleware
 
 app = FastAPI(
-    title="Score Engine Lynex",
+    title="Score Engine N7",
     description="API de reputação preditiva transacional em tempo real",
     version="1.0.0"
 )
