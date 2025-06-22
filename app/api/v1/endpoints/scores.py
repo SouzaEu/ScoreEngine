@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from typing import Dict, Any, List
 from pydantic import BaseModel, Field
 from datetime import datetime
@@ -36,7 +36,8 @@ class ScoreResponse(BaseModel):
 @cache_score(expire=3600)  # Cache por 1 hora
 async def calculate_score(
     request: ScoreRequest,
-    current_user: Dict = Depends(get_current_user)
+    current_user: Dict = Depends(get_current_user),
+    fastapi_request: Request = None
 ) -> ScoreResponse:
     """
     Calcula o score de reputação para um usuário
@@ -70,13 +71,15 @@ async def calculate_score(
         risk = "alto" if prediction["score"] < 40 else "médio" if prediction["score"] < 70 else "baixo"
         
         # Registra log LGPD
+        trace_id = fastapi_request.state.trace_id if fastapi_request else None
         score_logger.log_score_calculation(
             user_id=request.user_id,
             score=prediction["score"],
             features=combined_features,
             model_version=prediction["version"],
             source_app=request.source_app,
-            explanation=explanation
+            explanation=explanation,
+            trace_id=trace_id
         )
         
         return ScoreResponse(
@@ -90,6 +93,19 @@ async def calculate_score(
         )
     
     except Exception as e:
+        # Fallback: buscar último score salvo
+        last_scores = await score_service.get_score_history(request.user_id)
+        if last_scores:
+            last_score = last_scores[0]
+            return ScoreResponse(
+                user_id=request.user_id,
+                score=last_score["score"],
+                risk="desconhecido",
+                explanation=last_score["explanation"],
+                features_used=list(last_score["features"].keys()),
+                model_version="desconhecido",
+                timestamp=last_score["timestamp"]
+            )
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/history/{user_id}")
@@ -109,22 +125,22 @@ async def get_score_history(
 async def contest_score(
     user_id: str,
     reason: str,
-    current_user: Dict = Depends(get_current_user)
+    current_user: Dict = Depends(get_current_user),
+    fastapi_request: Request = None
 ) -> Dict[str, Any]:
     """
     Permite que um usuário conteste seu score
     """
     try:
         result = await score_service.contest_score(user_id, reason)
-        
-        # Registra log da contestação
+        trace_id = fastapi_request.state.trace_id if fastapi_request else None
         score_logger.log_score_contest(
             user_id=user_id,
             reason=reason,
             original_score=result["original_score"],
-            new_score=result.get("new_score")
+            new_score=result.get("new_score"),
+            trace_id=trace_id
         )
-        
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

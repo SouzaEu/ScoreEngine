@@ -57,7 +57,15 @@ def train_model():
     
     # Gera dados sintéticos
     df = generate_synthetic_data()
-    
+
+    # Calcula e exibe correlação de cada feature com o score
+    print("Correlação de cada feature com o score de risco real:")
+    correlacoes = df.corr(numeric_only=True)['score'].sort_values(ascending=False)
+    print(correlacoes)
+    # Também registra no MLflow
+    correlacoes.drop('score').to_csv("feature_score_correlations.csv")
+    mlflow.log_artifact("feature_score_correlations.csv")
+
     # Separa features e target
     X = df.drop('score', axis=1)
     y = df['score']

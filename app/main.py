@@ -6,7 +6,7 @@ from typing import Dict, Any
 
 from app.core.config import settings
 from app.api.v1.endpoints import scores, features, models
-from app.core.middleware import PrometheusMiddleware
+from app.core.middleware import PrometheusMiddleware, TraceIDMiddleware
 
 app = FastAPI(
     title="Score Engine N7",
@@ -25,6 +25,9 @@ app.add_middleware(
 
 # Middleware do Prometheus
 app.add_middleware(PrometheusMiddleware)
+
+# Middleware do TraceID
+app.add_middleware(TraceIDMiddleware)
 
 # Rotas da API
 app.include_router(scores.router, prefix="/api/v1/scores", tags=["scores"])

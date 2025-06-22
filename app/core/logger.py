@@ -3,6 +3,7 @@ from pythonjsonlogger import jsonlogger
 from datetime import datetime
 from typing import Dict, Any
 from app.core.config import settings
+from fastapi import Request
 
 class CustomJsonFormatter(jsonlogger.JsonFormatter):
     def add_fields(self, log_record: Dict[str, Any], record: logging.LogRecord, message_dict: Dict[str, Any]) -> None:
@@ -41,7 +42,8 @@ class ScoreLogger:
         features: Dict[str, Any],
         model_version: str,
         source_app: str,
-        explanation: Dict[str, Any]
+        explanation: Dict[str, Any],
+        trace_id: str = None
     ) -> None:
         """
         Registra o cálculo de score com metadados LGPD
@@ -56,7 +58,8 @@ class ScoreLogger:
                 "source_app": source_app,
                 "explanation": explanation,
                 "event_type": "score_calculation",
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.utcnow().isoformat(),
+                "trace_id": trace_id
             }
         )
 
@@ -65,7 +68,8 @@ class ScoreLogger:
         user_id: str,
         reason: str,
         original_score: float,
-        new_score: float = None
+        new_score: float = None,
+        trace_id: str = None
     ) -> None:
         """
         Registra contestação de score
@@ -78,6 +82,7 @@ class ScoreLogger:
                 "original_score": original_score,
                 "new_score": new_score,
                 "event_type": "score_contest",
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.utcnow().isoformat(),
+                "trace_id": trace_id
             }
         ) 

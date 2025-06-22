@@ -2,6 +2,7 @@ from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from prometheus_client import Counter, Histogram
 import time
+import uuid
 
 # Métricas do Prometheus
 REQUEST_COUNT = Counter(
@@ -38,4 +39,12 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
             endpoint=request.url.path
         ).observe(latency)
         
+        return response 
+
+class TraceIDMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        trace_id = request.headers.get('X-Trace-Id') or str(uuid.uuid4())
+        request.state.trace_id = trace_id
+        response = await call_next(request)
+        response.headers['X-Trace-Id'] = trace_id
         return response 

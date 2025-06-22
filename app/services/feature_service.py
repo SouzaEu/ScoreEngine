@@ -3,6 +3,7 @@ import redis
 import json
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
+from collections import deque
 
 from app.core.config import settings
 from app.db.session import get_db
@@ -11,6 +12,9 @@ from app.models.user_feature import UserFeature
 class FeatureService:
     def __init__(self):
         self.redis_client = redis.from_url(settings.REDIS_URL)
+        # Parâmetro: quantos eventos manter no histórico
+        self.HISTORICO_TRANSACOES = 20
+        self.HISTORICO_LOGINS = 10
     
     async def get_user_features(self, user_id: str) -> Dict[str, Any]:
         """
@@ -77,7 +81,19 @@ class FeatureService:
             "app_connections": 0,
             "last_transaction_date": None,
             "account_age_days": 0,
-            "total_transactions": 0
+            "total_transactions": 0,
+            # Novas features
+            "tempo_medio_entre_transacoes": 0.0,
+            "variacao_categoria_uso": 0,
+            "geodispersao_ips": 0,
+            "frequencia_reembolsos": 0.0,
+            "mudanca_subita_device": 0,
+            "dias_desde_ultima_transacao": 0,
+            "total_chargebacks": 0,
+            "media_valor_reembolsos": 0.0,
+            # Históricos mínimos para cálculo
+            "historico_transacoes": [],  # lista de dicts: {timestamp, valor, categoria, reembolsada, chargeback}
+            "historico_logins": []       # lista de dicts: {timestamp, device_id, cidade, estado}
         }
     
     async def update_features(
@@ -123,61 +139,105 @@ class FeatureService:
         user_id = event.get("user_id")
         event_type = event.get("type")
         event_data = event.get("data", {})
-        
         if not user_id or not event_type:
             return
-        
-        # Atualiza features baseado no tipo de evento
+        features = await self.get_user_features(user_id)
+        historico_transacoes = features.get("historico_transacoes", [])
+        historico_logins = features.get("historico_logins", [])
+        now = datetime.utcnow()
+        # Atualiza históricos e features conforme o tipo de evento
         if event_type == "pix_payment":
-            await self._process_pix_payment(user_id, event_data)
+            transacao = {
+                "timestamp": now,
+                "valor": event_data.get("amount", 0),
+                "categoria": event_data.get("categoria", "pix"),
+                "reembolsada": event_data.get("reembolsada", False),
+                "chargeback": False
+            }
+            historico_transacoes.append(transacao)
+            historico_transacoes = historico_transacoes[-self.HISTORICO_TRANSACOES:]
+            features["pix_volume"] = features.get("pix_volume", 0.0) + event_data.get("amount", 0)
+            features["total_transactions"] = features.get("total_transactions", 0) + 1
+            features["last_transaction_date"] = now.isoformat()
+            features["avg_transaction_value"] = features["pix_volume"] / features["total_transactions"]
         elif event_type == "chargeback":
-            await self._process_chargeback(user_id, event_data)
+            # Marca a última transação como chargeback
+            if historico_transacoes:
+                historico_transacoes[-1]["chargeback"] = True
+            features["total_chargebacks"] = features.get("total_chargebacks", 0) + 1
+            features["chargeback_rate"] = features["total_chargebacks"] / features.get("total_transactions", 1)
+        elif event_type == "refund":
+            # Marca a última transação como reembolsada
+            if historico_transacoes:
+                historico_transacoes[-1]["reembolsada"] = True
         elif event_type == "app_connection":
-            await self._process_app_connection(user_id, event_data)
+            features["app_connections"] = features.get("app_connections", 0) + 1
+        elif event_type == "login":
+            login = {
+                "timestamp": now,
+                "device_id": event_data.get("device_id", "unknown"),
+                "cidade": event_data.get("cidade", ""),
+                "estado": event_data.get("estado", "")
+            }
+            historico_logins.append(login)
+            historico_logins = historico_logins[-self.HISTORICO_LOGINS:]
+        # Atualiza históricos
+        features["historico_transacoes"] = historico_transacoes
+        features["historico_logins"] = historico_logins
+        # Recalcula features comportamentais avançadas
+        features["tempo_medio_entre_transacoes"] = self.calcular_tempo_medio_entre_transacoes(historico_transacoes)
+        features["variacao_categoria_uso"] = self.calcular_variacao_categoria_uso(historico_transacoes)
+        features["geodispersao_ips"] = self.calcular_geodispersao_ips(historico_logins)
+        features["frequencia_reembolsos"] = self.calcular_frequencia_reembolsos(historico_transacoes)
+        features["mudanca_subita_device"] = self.calcular_mudanca_subita_device(historico_logins)
+        features["dias_desde_ultima_transacao"] = self.calcular_dias_desde_ultima_transacao(historico_transacoes)
+        features["total_chargebacks"] = self.calcular_total_chargebacks(historico_transacoes)
+        features["media_valor_reembolsos"] = self.calcular_media_valor_reembolsos(historico_transacoes)
+        await self.update_features(user_id, features)
     
-    async def _process_pix_payment(self, user_id: str, event_data: Dict[str, Any]):
-        """
-        Processa um evento de pagamento via Pix
-        """
-        current_features = await self.get_user_features(user_id)
-        
-        # Atualiza features relacionadas a Pix
-        new_features = {
-            "pix_volume": current_features["pix_volume"] + event_data.get("amount", 0),
-            "total_transactions": current_features["total_transactions"] + 1,
-            "last_transaction_date": datetime.utcnow().isoformat(),
-            "avg_transaction_value": (
-                (current_features["pix_volume"] + event_data.get("amount", 0)) /
-                (current_features["total_transactions"] + 1)
-            )
-        }
-        
-        await self.update_features(user_id, new_features)
-    
-    async def _process_chargeback(self, user_id: str, event_data: Dict[str, Any]):
-        """
-        Processa um evento de chargeback
-        """
-        current_features = await self.get_user_features(user_id)
-        
-        # Atualiza taxa de chargeback
-        total_chargebacks = current_features.get("total_chargebacks", 0) + 1
-        new_features = {
-            "total_chargebacks": total_chargebacks,
-            "chargeback_rate": total_chargebacks / current_features["total_transactions"]
-        }
-        
-        await self.update_features(user_id, new_features)
-    
-    async def _process_app_connection(self, user_id: str, event_data: Dict[str, Any]):
-        """
-        Processa um evento de conexão com app
-        """
-        current_features = await self.get_user_features(user_id)
-        
-        # Atualiza número de apps conectados
-        new_features = {
-            "app_connections": current_features["app_connections"] + 1
-        }
-        
-        await self.update_features(user_id, new_features) 
+    # Funções utilitárias para cálculo das novas features
+    def calcular_tempo_medio_entre_transacoes(self, transacoes):
+        if len(transacoes) < 2:
+            return 0.0
+        transacoes_ordenadas = sorted(transacoes, key=lambda x: x['timestamp'])
+        intervalos = [
+            (transacoes_ordenadas[i]['timestamp'] - transacoes_ordenadas[i-1]['timestamp']).total_seconds()/3600
+            for i in range(1, len(transacoes_ordenadas))
+        ]
+        return sum(intervalos) / len(intervalos)
+
+    def calcular_variacao_categoria_uso(self, transacoes):
+        categorias = set([t.get('categoria') for t in transacoes if t.get('categoria')])
+        return len(categorias)
+
+    def calcular_geodispersao_ips(self, logins):
+        localidades = set()
+        for login in logins:
+            if 'cidade' in login and 'estado' in login:
+                localidades.add((login['cidade'], login['estado']))
+        return len(localidades)
+
+    def calcular_frequencia_reembolsos(self, transacoes):
+        total = len(transacoes)
+        reembolsos = sum(1 for t in transacoes if t.get('reembolsada', False))
+        return reembolsos / total if total > 0 else 0.0
+
+    def calcular_mudanca_subita_device(self, logins):
+        if not logins:
+            return 0
+        devices = [login.get('device_id') for login in sorted(logins, key=lambda x: x['timestamp'])]
+        trocas = sum(1 for i in range(1, len(devices)) if devices[i] != devices[i-1])
+        return trocas
+
+    def calcular_dias_desde_ultima_transacao(self, transacoes):
+        if not transacoes:
+            return 0
+        ultima = max(transacoes, key=lambda x: x['timestamp'])['timestamp']
+        return (datetime.utcnow() - ultima).days
+
+    def calcular_total_chargebacks(self, transacoes):
+        return sum(1 for t in transacoes if t.get('chargeback', False))
+
+    def calcular_media_valor_reembolsos(self, transacoes):
+        valores = [t['valor'] for t in transacoes if t.get('reembolsada', False) and t.get('valor') is not None]
+        return sum(valores) / len(valores) if valores else 0.0 
